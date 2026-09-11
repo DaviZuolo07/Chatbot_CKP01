@@ -1,0 +1,11 @@
+# Segredos
+.env
+
+# Ambiente virtual e caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Saídas geradas
+*.zip
