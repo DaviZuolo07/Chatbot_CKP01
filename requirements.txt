@@ -1,7 +1,6 @@
 # LangChain 0.3+ (versão adotada no semestre — Aula 01).
 # Travado em <0.4 porque os imports da Aula 02
-# (langchain.memory, langchain.chains, langchain.prompts)
-# não existem mais no pacote principal a partir da 1.x.
+# (langchain.memory, langchain.chains) não existem mais no pacote principal a partir da 1.x.
 langchain>=0.3,<0.4
 langchain-core>=0.3,<0.4
 langchain-ollama>=0.3,<0.4
@@ -18,5 +17,8 @@ python-dotenv>=1.0
 # Interface web — Gradio em http://localhost:7860 (enunciado do CKP01)
 gradio>=5,<6
 
-# Contagem de tokens no context rot (diferencial do CKP01)
+# Tabela e gráficos do context rot (já vem com o Gradio; explícito porque importamos)
+pandas>=2
+
+# Contagem de tokens na memória e no context rot (diferencial do CKP01)
 tiktoken>=0.7

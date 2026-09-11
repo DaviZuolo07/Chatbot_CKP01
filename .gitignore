@@ -9,3 +9,6 @@ __pycache__/
 
 # Saídas geradas
 *.zip
+
+# Resultado do experimento (a tabela vai para o README)
+context_rot_resultados.md
