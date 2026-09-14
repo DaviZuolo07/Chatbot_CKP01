@@ -53,31 +53,34 @@ MIN_PALAVRAS_REDACAO = 60    # abaixo disso não é redação — nem chama o mo
 MAX_CARACTERES_HISTORICO = 8000  # recorte da conversa enviado ao relatório
 
 
-def _validar_ambiente() -> None:
-    """Confere se a chave foi configurada e garante o host da Ollama Cloud."""
-    chave = os.getenv("OLLAMA_API_KEY", "").strip()
-    if not chave or chave == "sua_chave_aqui":
+def _validar_ambiente():
+    """Valida as variáveis obrigatórias do ambiente.
+
+    O projeto usa o Ollama local como gateway para os modelos Cloud.
+    A autenticação da conta Ollama é feita pelo CLI (`ollama signin`).
+    A OLLAMA_API_KEY continua obrigatória no .env conforme o contrato do CKP01.
+    """
+    if not os.getenv("OLLAMA_API_KEY"):
         raise RuntimeError(
-            "OLLAMA_API_KEY não configurada. Copie .env.example para .env "
-            "e cole a chave gerada em https://ollama.com/settings/keys"
+            "OLLAMA_API_KEY não encontrada. "
+            "Configure a chave no arquivo .env."
         )
-    os.environ.setdefault("OLLAMA_HOST", "https://ollama.com")
 
 
-def criar_llm(json_mode: bool = False) -> ChatOllama:
-    """
-    ChatOllama no padrão das aulas (host e chave lidos do ambiente).
-    - custom_get_token_ids: a ConversationTokenBufferMemory conta tokens com
-      tiktoken através deste hook (sem isso o LangChain tentaria baixar o
-      tokenizador GPT-2 via transformers).
-    - json_mode: format="json" do Ollama + PydanticOutputParser (Aula 03).
-    """
+def criar_llm(json_mode=False):
     _validar_ambiente()
+
+    configuracao = {
+        "model": MODELO,
+        "temperature": 0.2 if json_mode else 0.7,
+        "custom_get_token_ids": token_ids,
+        "base_url": "http://localhost:11434",
+    }
+
     if json_mode:
-        return ChatOllama(model=MODELO, temperature=TEMPERATURA_JSON, format="json",
-                          custom_get_token_ids=token_ids)
-    return ChatOllama(model=MODELO, temperature=TEMPERATURA_CHAT,
-                      custom_get_token_ids=token_ids)
+        configuracao["format"] = "json"
+
+    return ChatOllama(**configuracao)
 
 
 # ==============================================================

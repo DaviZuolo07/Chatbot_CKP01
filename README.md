@@ -1,137 +1,570 @@
-# CKP01 — Chatbot Profissional · Tutor ENEM (Ensino Médio)
+# CKP01 — Chatbot Profissional · Tutor ENEM
 
 **Prompt Engineering & AI · FIAP · 2º Semestre 2026**
-**Integrantes:** Nome Completo (RM00000) · Nome Completo (RM00000) · Nome Completo (RM00000)
-**Peso: 25% · Apresentação: Aula 04 · Entrega: 23:55 do dia da Aula 05 (.zip via Teams — só o líder)**
+
+**Integrantes:** Davi Queiroz Zuolo (571669) · Gustavo Zagato (569420) · Daniel Vilela Mana (571632) · Kayo Henderson (570706)
 
 ## Domínio
 
-**Tutor ENEM** — assistente de estudos para o ensino médio com foco no ENEM, organizado em
-**5 salas de matéria (lista fechada)**. O aluno escolhe a matéria e conversa com um tutor
-especializado nela; cada sala tem persona, escopo, regras e memória próprios.
+**Tutor ENEM** — chatbot educacional para estudantes do ensino médio e candidatos ao ENEM.
 
-| Matéria | Tutor(a) | Área do ENEM |
-|---|---|---|
-| ✍️ Redação | Clara | Redação (0–1000, 5 competências) |
-| 📐 Matemática | Teo | Matemática e suas Tecnologias |
-| 🌎 História e Geografia | Helena | Ciências Humanas |
-| 🧬 Biologia | Bia | Ciências da Natureza |
-| ⚡ Física | Max | Ciências da Natureza |
+O sistema possui uma **lista fechada de 5 matérias**. O aluno escolhe uma matéria e conversa com um tutor especializado naquele domínio. Cada matéria possui sua própria persona, escopo, regras e sala de memória.
 
-**Por que este domínio:** o ENEM tem matriz de referência pública e estável, e há muitos
-documentos oficiais (provas e gabaritos do INEP, Cartilha do Participante da redação, BNCC).
-Esses documentos serão a base do RAG no CKP02, com uma coleção por matéria, e o tutor vira
-tool do agente no CKP03.
+| Matéria                 | Tutor(a) | Área do ENEM                  |
+| ----------------------- | -------- | ----------------------------- |
+| ✍️ Redação              | Clara    | Redação                       |
+| 📐 Matemática           | Teo      | Matemática e suas Tecnologias |
+| 🌎 História & Geografia | Helena   | Ciências Humanas              |
+| 🧬 Biologia             | Bia      | Ciências da Natureza          |
+| ⚡ Física               | Max      | Ciências da Natureza          |
 
-**Usuários-alvo:** estudantes do ensino médio (em geral de 14 a 18 anos) e pessoas que vão
-prestar o ENEM. Como muitos são menores de idade, o system prompt exige linguagem adequada à
-idade e proíbe pedir dados pessoais.
+### Por que este domínio?
+
+O ENEM é um domínio educacional adequado para aplicação de técnicas de engenharia de prompts, memória conversacional e saída estruturada.
+
+O chatbot foi projetado para auxiliar o estudante dentro da matéria escolhida, explicando conceitos, orientando o raciocínio e evitando respostas fora do escopo daquela sala.
+
+O domínio também foi escolhido pensando na evolução do projeto ao longo do semestre, mantendo o **Tutor ENEM como base** para as próximas etapas previstas pelo curso.
+
+### Usuários-alvo
+
+* Estudantes do ensino médio;
+* Pessoas que estão se preparando para o ENEM;
+* Alunos que desejam revisar conteúdos e compreender o raciocínio por trás das questões.
+
+Como parte dos usuários pode ser menor de idade, o sistema possui regras de segurança e linguagem adequada ao contexto educacional, além de restrições contra solicitação e exposição de dados pessoais.
+
+---
 
 ## Requisitos atendidos
-| Requisito | Status | Implementação |
-|---|---|---|
-| Pipeline LCEL | ✅ | chain.py — `prompt \| llm_json \| PydanticOutputParser()` (correção e relatório) · `prompt \| llm \| StrOutputParser()` (context rot) |
-| ChatOllama | ✅ | gemma4:cloud via Ollama Cloud (.env) |
-| ChatPromptTemplate | ✅ | prompts.py — system e human separados, variáveis via `.partial()`, sem f-string |
-| Memória gerenciada | ✅ | ConversationChain + ConversationTokenBufferMemory (1200 tokens), uma por sala — memory_manager.py |
-| Pydantic v2 (≥4 campos) | ✅ | schemas.py — `CorrecaoRedacao` (11 campos) e `RelatorioSessao` (7 campos), com `@field_validator` e `@model_validator` |
-| Context rot | ✅ | context_rot.py — janelas de 0/5/10/15/20 turnos, tokens com tiktoken, tabela + gráfico |
-| System prompt com persona | ✅ | prompts.py — XML tagging, persona por matéria, sandwich defense |
-| Domínio documentado | ✅ | Este README + prompts.py |
-| Diferencial: métricas de contexto | ✅ | tiktoken + tokens reais do Ollama + qualidade (%) por janela |
-| Diferencial: meta prompting | ⏳ | — |
 
-## Como executar (local — sem Colab)
+| Requisito            | Status | Implementação                                                                      |
+| -------------------- | ------ | ---------------------------------------------------------------------------------- |
+| Pipeline LCEL        | ✅      | `chain.py` — composição com operador `\|` para as chains estruturadas              |
+| ChatOllama           | ✅      | `gemma4:cloud` via Ollama                                                          |
+| ChatPromptTemplate   | ✅      | `prompts.py` — mensagens `system` e `human` separadas e variáveis via `.partial()` |
+| 2 chains             | ✅      | `ConversationChain` para conversa + pipeline LCEL para saídas estruturadas         |
+| Memória gerenciada   | ✅      | `ConversationChain` + `ConversationTokenBufferMemory`, limite de 1200 tokens       |
+| Pydantic v2          | ✅      | `schemas.py` — `CorrecaoRedacao` e `RelatorioSessao`                               |
+| PydanticOutputParser | ✅      | Integrado às chains de saída estruturada                                           |
+| System prompt        | ✅      | `prompts.py` — persona, escopo, regras, segurança e XML tagging                    |
+| Domínio documentado  | ✅      | Este README + `prompts.py`                                                         |
+| Context engineering  | ✅      | `context_rot.py` — experimento com contexto crescente                              |
+| Contagem de tokens   | ✅      | `tiktoken` + tokens reportados pelo Ollama                                         |
+| Métricas de contexto | ✅      | qualidade, tokens e latência por janela                                            |
+| Meta prompting       | ⏳      | Diferencial opcional não implementado                                              |
+
+---
+
+## Como executar
+
+O projeto foi desenvolvido para execução **local, sem Google Colab**.
+
+### 1. Criar o ambiente virtual
+
+Windows:
+
 ```bash
-cp .env.example .env        # edite com sua OLLAMA_API_KEY — este arquivo NÃO vai no .zip
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+Linux/macOS:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### 2. Criar o arquivo `.env`
+
+Copie o arquivo de exemplo:
+
+Windows:
+
+```bash
+copy .env.example .env
+```
+
+Linux/macOS:
+
+```bash
+cp .env.example .env
+```
+
+Preencha a variável `OLLAMA_API_KEY` conforme o ambiente utilizado.
+
+> **Importante:** o arquivo `.env` contém credenciais e não deve ser enviado para o repositório ou para o `.zip` da entrega. Apenas `.env.example` deve ser entregue.
+
+### 3. Instalar as dependências
+
+```bash
 pip install -r requirements.txt
-python -m app.main          # Gradio: http://localhost:7860
 ```
-> Windows: use `copy .env.example .env`. Recomendado usar um ambiente virtual (`python -m venv .venv`).
-> Na primeira execução o tiktoken baixa o tokenizador (precisa de internet).
 
-Comandos extras (evidências para a avaliação):
+### 4. Executar o chatbot
+
 ```bash
-python -m app.memory_manager   # memória funcionando em 6 turnos (load_memory_variables)
-python -m app.context_rot      # experimento de context rot → context_rot_resultados.md
-python -m app.guardrails       # casos de teste dos guardrails (ataques e falsos positivos)
+python -m app.main
 ```
 
-## Arquitetura (2 chains — Aula 03)
-```
-                    ┌──────────── guardrails.py (igual para todas as matérias) ────────────┐
-aluno ─► Gradio ─►  │ entrada: tamanho · regex anti-injection · tags falsas · mascara CPF/e-mail │
- (main.py)          └────────────────────────────────┬──────────────────────────────────────┘
-                                                     ▼
-            Chain 1 (chat) — uma por sala (sessão + matéria)
-            ConversationChain( ChatPromptTemplate[system da matéria + {history} + {input}],
-                               ChatOllama gemma4:cloud, TokenBufferMemory 1200 )
-                                                     ▼
-                              guardrail de saída: bloqueia vazamento do system prompt
+A interface Gradio será disponibilizada localmente em:
 
-            Chain 2 (estruturada):  prompt | ChatOllama(format="json") | PydanticOutputParser
-              · aba "Corrigir redação"  → CorrecaoRedacao
-              · botão "Relatório"       → RelatorioSessao
+```text
+http://localhost:7860
 ```
-O system prompt tem uma **parte fixa** (identidade, público, regras gerais, segurança, formato) e
-uma **parte por matéria** (persona, escopo, regras e exemplos few-shot). Cada matéria gera o seu
-próprio `ChatPromptTemplate` via `.partial()`. Assim, Biologia só responde Biologia e manda o aluno
-trocar de sala se a pergunta for de outra matéria.
 
-## Estrutura
+---
+
+## Comandos de demonstração e evidências
+
+### Memória conversacional
+
+```bash
+python -m app.memory_manager
 ```
+
+Executa a demonstração da memória em múltiplos turnos e apresenta o estado da memória.
+
+### Context Rot
+
+```bash
+python -m app.context_rot
+```
+
+Executa o experimento de contexto crescente e gera:
+
+```text
+context_rot_resultados.md
+```
+
+### Guardrails
+
+```bash
+python -m app.guardrails
+```
+
+Executa os casos de teste relacionados às proteções de entrada e saída.
+
+---
+
+## Arquitetura — 2 Chains
+
+A arquitetura segue a estrutura ensinada na Aula 03: uma chain de conversa com memória e uma segunda chain baseada em LCEL para saída estruturada.
+
+```text
+                         ┌──────────────────────────────┐
+                         │          Gradio              │
+                         │          main.py             │
+                         └──────────────┬───────────────┘
+                                        │
+                                        ▼
+                         ┌──────────────────────────────┐
+                         │         Guardrails           │
+                         │       guardrails.py          │
+                         └──────────────┬───────────────┘
+                                        │
+                                        ▼
+             ┌────────────────────────────────────────────────┐
+             │                  Chain 1 — Chat                 │
+             │                                                │
+             │ ConversationChain                              │
+             │   ├── ChatPromptTemplate                       │
+             │   ├── System Prompt da matéria                 │
+             │   ├── {history}                                │
+             │   ├── {input}                                  │
+             │   ├── ChatOllama — gemma4:cloud                │
+             │   └── ConversationTokenBufferMemory — 1200    │
+             │                                                │
+             └──────────────────────┬─────────────────────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │  Guardrail de saída  │
+                         └──────────────────────┘
+
+
+             ┌────────────────────────────────────────────────┐
+             │              Chain 2 — Estruturada              │
+             │                                                │
+             │ ChatPromptTemplate                             │
+             │          │                                     │
+             │          ▼                                     │
+             │ ChatOllama                                     │
+             │          │                                     │
+             │          ▼                                     │
+             │ PydanticOutputParser                           │
+             │                                                │
+             │   ├── CorrecaoRedacao                          │
+             │   └── RelatorioSessao                          │
+             └────────────────────────────────────────────────┘
+```
+
+A Chain 1 é responsável pela conversa do aluno e utiliza memória gerenciada.
+
+A Chain 2 utiliza LCEL para produzir saídas estruturadas e validadas por schemas Pydantic.
+
+---
+
+## System Prompt e especialização por matéria
+
+O system prompt possui uma estrutura comum a todas as matérias e campos específicos de cada domínio.
+
+A estrutura utiliza marcação XML para separar as responsabilidades do prompt:
+
+```text
+<identidade>
+<público>
+<objetivo>
+<escopo>
+<fora_do_escopo>
+<regras_gerais>
+<regras_materia>
+<seguranca>
+<formato_resposta>
+<exemplos>
+<lembrete_final>
+```
+
+A parte específica da matéria define:
+
+* Persona do tutor;
+* Especialidade;
+* Escopo permitido;
+* Conteúdos fora do escopo;
+* Regras específicas;
+* Exemplos de comportamento.
+
+Dessa forma, cada sala mantém sua especialização.
+
+Por exemplo, uma pergunta de Biologia feita na sala de Matemática não é respondida como conteúdo de Biologia: o tutor orienta o aluno a utilizar a sala correspondente.
+
+---
+
+## Estrutura do projeto
+
+```text
 app/
-├── main.py            # Interface Gradio + entry point
-├── chain.py           # Pipelines LCEL + orquestrador TutorENEM
-├── memory_manager.py  # TokenBufferMemory por sala + demonstração 6 turnos
-├── schemas.py         # Pydantic v2 (CorrecaoRedacao, RelatorioSessao)
-├── context_rot.py     # Demonstração de degradação
-├── prompts.py         # System prompt XML + 5 matérias + templates estruturados
-├── guardrails.py      # Regex anti-injection, dados pessoais, validação de saída
-└── tokens.py          # Contagem de tokens (tiktoken)
+├── __init__.py
+├── main.py              # Interface Gradio e ponto de entrada
+├── chain.py             # Chains LCEL e orquestrador TutorENEM
+├── memory_manager.py    # ConversationTokenBufferMemory por sala
+├── schemas.py           # Schemas Pydantic v2
+├── context_rot.py       # Experimento de contexto crescente
+├── prompts.py           # System prompts e configurações das matérias
+├── guardrails.py        # Validação e proteção de entrada/saída
+└── tokens.py            # Contagem de tokens com tiktoken
+
+.env.example             # Modelo das variáveis de ambiente
+requirements.txt         # Dependências do projeto
+README.md                # Documentação
 ```
+
+---
 
 ## Justificativa da memória
 
-**Escolha: `ConversationTokenBufferMemory` com `max_token_limit=1200`, uma memória por sala.**
+### Escolha: `ConversationTokenBufferMemory`
 
-- **Por quê:** uma sessão de estudo é longa (30+ turnos), mas o que importa para a próxima resposta
-  é o exercício em andamento, ou seja, os últimos turnos, *literalmente*. A TokenBuffer mantém
-  exatamente isso, numa janela deslizante.
-- **Por que não Buffer:** o custo cresce sem limite. Com cerca de 300 tokens por turno (pergunta +
-  resposta didática), no turno 30 o histórico passaria de ~9.000 tokens por chamada. O experimento
-  de context rot mostra que contexto longo também custa qualidade.
-- **Por que não Summary:** faz uma chamada extra ao LLM a cada turno e o resumo perde números,
-  contas e fórmulas, que são justamente o que importa em Matemática e Física.
-- **Efeito no custo de tokens:** cada chamada fica limitada a ≈ system prompt (~1.200 tokens) +
-  memória (≤ 1.200) + pergunta. O teto é previsível, independente do tamanho da sessão.
-- **Trade-off assumido:** fatos ditos no início da sessão saem da janela depois de alguns turnos.
-  Para compensar, a interface guarda a transcrição completa, e o relatório da sessão usa essa
-  transcrição completa, não a memória.
-- **Uma memória por matéria:** trocar de sala não mistura contexto. O que foi dito em Física
-  nunca entra no prompt de Biologia.
+O projeto utiliza:
 
-## Guardrails (defesa em camadas)
-1. **Validação de entrada** (`guardrails.py`): limite de tamanho, regex de prompt injection (ignorar
-   instruções, revelar system prompt, troca de identidade, modo irrestrito, tags falsas, blocos base64)
-   e mascaramento de CPF, e-mail e telefone (LGPD). Mensagem bloqueada não chama o modelo nem entra na memória.
-2. **Separação dados ↔ instruções:** a pergunta vai dentro de `<pergunta_usuario>`; a redação, dentro de `<redacao>`.
-3. **System prompt robusto:** seção `<seguranca>` + `<lembrete_final>` (sandwich defense).
-4. **Validação de saída:** se a resposta contém tags internas do prompt, é substituída e corrigida na memória.
-5. **Logging** de todo bloqueio no terminal.
+```text
+ConversationTokenBufferMemory
+max_token_limit = 1200
+```
 
-Os padrões foram testados contra falsos positivos típicos do domínio, como "o governo ignorou as
-regras da Constituição" (História) e "aja como examinador" (pedido legítimo).
+A escolha segue a recomendação apresentada na Aula 02 para **tutores educacionais e assistentes de estudo**: a memória TokenBuffer mantém uma janela deslizante das mensagens mais recentes, sendo adequada quando as explicações recentes são mais relevantes para a próxima interação.
 
-## Context rot
-Mesmo prompt final ("qual é o meu nome e a minha meta?") com 0, 5, 10, 15 e 20 turnos de
-distração entre o fato plantado e a pergunta. A cada 3 turnos entra um **distrator** (outro nome e
-outra nota). A qualidade é medida por critérios objetivos: lembrou o nome, lembrou a meta e não
-confundiu com os distratores.
+### Por que TokenBuffer?
 
-**Resultados:** rode `python -m app.context_rot` (ou use a aba "📉 Context rot") e cole aqui a
-tabela gerada em `context_rot_resultados.md`.
+Uma sessão de estudo pode possuir muitos turnos. Manter todo o histórico indefinidamente aumenta o contexto enviado ao modelo.
 
-| turnos_distracao | tokens_tiktoken | tokens_ollama | latencia_s | qualidade_pct |
-|---|---|---|---|---|
-| — | — | — | — | — |
+A `ConversationTokenBufferMemory` mantém as mensagens mais recentes até o limite configurado e descarta as mais antigas quando o limite é atingido. Esse comportamento corresponde à janela deslizante apresentada na Aula 02.
+
+O limite escolhido foi de **1200 tokens**, dentro da faixa de **800–1500 tokens** definida no CKP01 e também dentro da faixa recomendada na Aula 02 para esse tipo de aplicação.
+
+### Por que não BufferMemory?
+
+`ConversationBufferMemory` mantém todo o histórico da conversa. Em sessões longas, isso faz o número de tokens crescer continuamente.
+
+### Por que não SummaryMemory?
+
+`ConversationSummaryMemory` gera um resumo progressivo utilizando o LLM. Embora possa reduzir o tamanho do histórico, existe o risco de informações específicas serem resumidas ou omitidas. Além disso, a Aula 02 destaca o custo adicional de uma chamada ao LLM para atualização do resumo.
+
+### Trade-off
+
+A principal consequência da TokenBuffer é que informações muito antigas podem sair da janela.
+
+Esse comportamento é intencional: o projeto prioriza **controle previsível do tamanho do contexto** e relevância das interações recentes.
+
+A interface mantém a transcrição da sessão separadamente para permitir a geração do relatório completo da sessão.
+
+---
+
+## Memória por sala
+
+A memória é isolada por:
+
+```text
+sessão + matéria
+```
+
+Isso impede que o histórico de uma matéria seja utilizado em outra.
+
+Exemplo:
+
+```text
+Sessão A + Matemática
+        ≠
+Sessão A + Biologia
+```
+
+Assim, uma conversa realizada na sala de Física não é incorporada ao contexto da sala de Biologia.
+
+A demonstração da memória pode ser executada com:
+
+```bash
+python -m app.memory_manager
+```
+
+O teste utiliza múltiplos turnos para demonstrar a persistência do contexto, conforme solicitado na Aula 02.
+
+---
+
+## Pydantic v2 e saída estruturada
+
+O projeto utiliza **Pydantic v2** para validar saídas estruturadas.
+
+Os principais schemas são:
+
+### `CorrecaoRedacao`
+
+Utilizado para estruturar a correção de uma redação.
+
+### `RelatorioSessao`
+
+Utilizado para estruturar o relatório da sessão de estudos.
+
+As saídas são processadas por:
+
+```text
+ChatPromptTemplate
+        |
+ChatOllama
+        |
+PydanticOutputParser
+```
+
+O parser valida a resposta produzida pelo modelo de acordo com o schema definido.
+
+---
+
+## Guardrails
+
+O projeto possui proteção em camadas para manter o chatbot dentro do escopo definido.
+
+### 1. Validação de entrada
+
+As entradas são verificadas antes da chamada ao modelo.
+
+São considerados, entre outros:
+
+* tamanho da mensagem;
+* padrões de prompt injection;
+* tentativa de revelar instruções internas;
+* tentativa de alterar a identidade do tutor;
+* tentativa de ativar modo irrestrito;
+* tags falsas;
+* blocos Base64;
+* dados pessoais como CPF, e-mail e telefone.
+
+Uma entrada bloqueada não chama o modelo e não é armazenada na memória.
+
+### 2. Separação entre dados e instruções
+
+A pergunta do aluno é encapsulada em uma tag específica:
+
+```xml
+<pergunta_usuario>
+...
+</pergunta_usuario>
+```
+
+Da mesma forma, uma redação é tratada separadamente:
+
+```xml
+<redacao>
+...
+</redacao>
+```
+
+### 3. Proteção no system prompt
+
+O prompt possui regras específicas de segurança e um lembrete final para reforçar o comportamento esperado.
+
+### 4. Validação da saída
+
+A resposta do modelo é analisada antes de ser apresentada ao usuário.
+
+Caso sejam detectadas informações que não deveriam aparecer, a resposta é substituída e a memória é corrigida para não manter a resposta inadequada.
+
+### 5. Logging
+
+Bloqueios realizados pelos guardrails são registrados no terminal para facilitar testes e auditoria.
+
+---
+
+## Context Rot
+
+O projeto possui um experimento específico para analisar o comportamento do modelo quando o contexto cresce.
+
+O experimento mantém:
+
+* o mesmo system prompt;
+* a mesma pergunta final;
+* o mesmo fato inicial;
+* diferentes quantidades de turnos intermediários;
+* distratores introduzidos progressivamente.
+
+O fato plantado utilizado no experimento é:
+
+```text
+Meu nome é Ana, estou no 3º ano e minha meta em Matemática no ENEM é 780 pontos.
+```
+
+A pergunta final verifica se o modelo consegue recuperar corretamente:
+
+```text
+Qual é o meu nome e qual é a minha meta de pontos em Matemática?
+```
+
+São avaliadas três métricas:
+
+1. Lembrou o nome;
+2. Lembrou a meta;
+3. Não confundiu o fato com os distratores.
+
+As janelas atualmente testadas são:
+
+```text
+0 → 5 → 10 → 15 → 20 turnos de distração
+```
+
+Os tokens são medidos com `tiktoken` e também são coletados os tokens reportados pelo Ollama quando disponíveis.
+
+### Resultado do experimento
+
+No experimento atual, **não foi observada degradação de qualidade nas janelas testadas**. Todas as janelas avaliadas apresentaram 100% de qualidade.
+
+Isso é mantido como resultado experimental, sem fabricar uma degradação que não foi observada.
+
+Para reproduzir:
+
+```bash
+python -m app.context_rot
+```
+
+O resultado é salvo em:
+
+```text
+context_rot_resultados.md
+```
+
+O experimento também permite observar o crescimento do número de tokens e a latência conforme o contexto aumenta.
+
+---
+
+## Diferencial: métricas de contexto
+
+Além da avaliação de qualidade, o experimento coleta:
+
+* tokens medidos pelo `tiktoken`;
+* tokens de entrada reportados pelo Ollama;
+* latência da chamada;
+* qualidade percentual;
+* métricas individuais de recuperação do contexto.
+
+Isso permite comparar não apenas a resposta final, mas também o crescimento do custo de contexto.
+
+---
+
+## Segurança e escopo
+
+O Tutor ENEM possui **escopo fechado por matéria**.
+
+O sistema deve:
+
+* responder em português brasileiro;
+* permanecer dentro da matéria selecionada;
+* explicar o raciocínio e não apenas fornecer respostas;
+* adaptar a explicação quando o aluno apresentar dificuldade;
+* evitar inventar informações;
+* não revelar instruções internas do sistema;
+* não solicitar dados pessoais desnecessários;
+* recusar conteúdos fora do propósito educacional definido.
+
+As regras são aplicadas no system prompt e reforçadas pelos guardrails.
+
+---
+
+## Relação com o semestre
+
+O **CKP01 é a base do projeto Tutor ENEM**.
+
+O domínio e a estrutura foram definidos de forma modular para permitir a evolução prevista no curso, mantendo o mesmo domínio ao longo dos próximos checkpoints.
+
+O escopo deste repositório, entretanto, permanece limitado aos requisitos do **CKP01**:
+
+* LangChain;
+* LCEL;
+* ChatOllama;
+* memória gerenciada;
+* Pydantic v2;
+* Context Engineering;
+* documentação do domínio.
+
+Funcionalidades previstas para etapas posteriores do semestre não fazem parte da implementação deste checkpoint.
+
+---
+
+## Checklist de execução
+
+Antes da entrega:
+
+```text
+[ ] Criar .env a partir de .env.example
+[ ] Configurar OLLAMA_API_KEY
+[ ] Instalar requirements.txt
+[ ] Executar python -m app.main
+[ ] Testar as 5 matérias
+[ ] Executar demonstração da memória
+[ ] Executar experimento de Context Rot
+[ ] Verificar os guardrails
+[ ] Confirmar que .env não está no Git
+[ ] Entregar somente .env.example
+```
+
+---
+
+## Observações para entrega
+
+O arquivo `.env` **não deve ser enviado** na entrega, pois contém credenciais.
+
+O pacote de entrega deve conter o projeto e o arquivo `.env.example`, conforme especificado no enunciado do CKP01.
+
+O projeto deve ser executado localmente com:
+
+```bash
+python -m app.main
+```
+
+O CKP01 utiliza exclusivamente o modelo definido para o checkpoint:
+
+```text
+gemma4:cloud
+```
+
+---
+
+**Disciplina:** Prompt Engineering and Artificial Intelligence
+**FIAP · Ciência da Computação · 2º Semestre 2026**
