@@ -1,12 +1,14 @@
 # LangChain 0.3+ (versão adotada no semestre — Aula 01).
-# Usamos só langchain-core + langchain-ollama: o pacote "langchain" clássico
-# (langchain.chains, langchain.memory) foi removido do projeto porque é
-# pydantic v1-style por baixo e não constrói no Python 3.14 (ver memory_manager.py
-# e chain.py). A memória (Aula 02) é implementada manualmente com LCEL puro —
-# o próprio material da Aula 02 cita essa abordagem (RunnableWithMessageHistory
-# e LCEL) como "a moderna para memória em 0.3+".
+# langchain-core + langchain-ollama: base LCEL/ChatOllama usada no projeto todo.
+# langchain: pacote "clássico" (langchain.chains.ConversationChain,
+# langchain.memory.ConversationTokenBufferMemory), exigido literalmente pela
+# Aula 02. Havia sido removido porque, no Python 3.14, essas classes não
+# importavam (dependência pydantic v1-style incompatível). No ambiente atual
+# do projeto (Python 3.13.9) o import funciona normalmente — ver chain.py,
+# função criar_chain_conversa, e memory_manager.py.
 langchain-core>=0.3,<0.4
 langchain-ollama>=0.3,<0.4
+langchain>=0.3,<0.4
 
 # Cliente Ollama: lê OLLAMA_HOST e OLLAMA_API_KEY direto do ambiente
 ollama>=0.6

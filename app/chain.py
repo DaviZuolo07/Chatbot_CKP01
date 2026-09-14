@@ -1,17 +1,22 @@
 """
-chain.py — Pipelines LCEL do Tutor ENEM (arquitetura de 2 chains da Aula 03).
+chain.py — Pipelines do Tutor ENEM (arquitetura de 2 chains da Aula 03).
 
-  Chain 1 — conversa (Aula 02): prompt | llm | StrOutputParser, com o
-            histórico da sala (janela ≤1200 tokens, memory_manager.py)
-            passado manualmente no MessagesPlaceholder("history") a cada
-            invoke — mesmo conceito de TokenBufferMemory ensinado na Aula
-            02, sem depender de langchain.chains/langchain.memory (esse
-            pacote legado não constrói no Python 3.14; ver memory_manager.py).
-  Chain 2 — saída estruturada (Aula 03):  prompt | llm_json | PydanticOutputParser
+  Chain 1 — conversa (Aula 02): ConversationChain + ConversationTokenBufferMemory
+            (langchain.chains / langchain.memory), literal ao material. A janela
+            de memória (≤1200 tokens, memory_manager.LIMITE_TOKENS_MEMORIA) é
+            gerenciada pela própria ConversationTokenBufferMemory, contando
+            tokens com tiktoken via custom_get_token_ids (tokens.py). Antes
+            disso era uma reimplementação manual em LCEL puro, porque
+            langchain.chains/langchain.memory não construíam no Python 3.14
+            (ambiente atual: Python 3.13.9, import OK — ver memory_manager.py).
+  Chain 2 — saída estruturada (Aula 03): prompt | llm_json | PydanticOutputParser
             · correção de redação  → CorrecaoRedacao
             · relatório da sessão  → RelatorioSessao
-  Chain básica (Aula 01): prompt | llm | StrOutputParser — usada no context_rot
-            e agora também na Chain 1 (mesmo formato, histórico manual).
+
+context_rot.py (Aula 04) monta sua própria chain básica (prompt | llm),
+por fora deste módulo: o experimento precisa de janelas de histórico SEM
+limite de tokens, de propósito, para demonstrar a degradação — não pode
+usar a memória limitada da Chain 1.
 
 A classe TutorENEM junta tudo com os guardrails e é a única coisa que a
 interface (main.py) precisa conhecer.
@@ -19,7 +24,9 @@ interface (main.py) precisa conhecer.
 import os
 
 from dotenv import load_dotenv
-from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
+from langchain.chains import ConversationChain
+from langchain.memory import ConversationTokenBufferMemory
+from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_ollama import ChatOllama
@@ -27,7 +34,7 @@ from langchain_ollama import ChatOllama
 from app.guardrails import (
     LIMITE_CARACTERES_REDACAO, verificar_entrada, verificar_saida,
 )
-from app.memory_manager import Sala, SalasDeEstudo
+from app.memory_manager import LIMITE_TOKENS_MEMORIA, Sala, SalasDeEstudo
 from app.prompts import (
     CORRECAO_HUMAN, CORRECAO_SYSTEM, MATERIAS, RELATORIO_HUMAN, RELATORIO_SYSTEM,
     criar_prompt_chat,
@@ -60,8 +67,9 @@ def _validar_ambiente() -> None:
 def criar_llm(json_mode: bool = False) -> ChatOllama:
     """
     ChatOllama no padrão das aulas (host e chave lidos do ambiente).
-    - custom_get_token_ids: a TokenBufferMemory conta tokens com tiktoken
-      (sem isso o LangChain tentaria baixar o tokenizador GPT-2 via transformers).
+    - custom_get_token_ids: a ConversationTokenBufferMemory conta tokens com
+      tiktoken através deste hook (sem isso o LangChain tentaria baixar o
+      tokenizador GPT-2 via transformers).
     - json_mode: format="json" do Ollama + PydanticOutputParser (Aula 03).
     """
     _validar_ambiente()
@@ -73,21 +81,35 @@ def criar_llm(json_mode: bool = False) -> ChatOllama:
 
 
 # ==============================================================
-# Chain básica (Aula 01) — stateless, histórico passado manualmente
+# Chain 1 — conversa com memória (Aula 02, literal)
 # ==============================================================
-def criar_chain_basica(materia: str, llm: ChatOllama) -> Runnable:
-    """prompt | llm | StrOutputParser()  →  invoke({"history": [...], "input": "..."})"""
-    return criar_prompt_chat(materia) | llm | StrOutputParser()
+def criar_chain_conversa(materia: str, llm: ChatOllama) -> ConversationChain:
+    """
+    ConversationChain + ConversationTokenBufferMemory.
+      memory_key="history"   → casa com o MessagesPlaceholder("history") de criar_prompt_chat
+      return_messages=True   → o prompt espera uma LISTA de mensagens, não uma string
+      max_token_limit=1200   → mesmo limite usado no projeto todo (memory_manager.py)
+      input_key/output_key   → nomes que criar_prompt_chat e o guardrail já esperam
 
-
-# ==============================================================
-# Chain 1 — conversa com memória (Aula 02)
-# ==============================================================
-# criar_chain_conversa foi removida: a Chain 1 agora É a chain básica
-# (criar_chain_basica), invocada com o histórico da Sala passado à mão
-# em {"history": sala.historico, "input": texto} — ver TutorENEM.responder.
-# Isso substitui a antiga ConversationChain(llm, memory, prompt), que
-# dependia de langchain.chains (quebra no Python 3.14).
+    Atenção: o auto-save do ConversationChain (Chain.prep_outputs) grava a
+    resposta BRUTA do modelo assim que o predict() termina — ANTES do nosso
+    guardrail de saída rodar. TutorENEM.responder() chama
+    Sala.registrar_turno() logo em seguida para corrigir a memória sempre
+    que o guardrail tiver alterado a resposta (ver memory_manager.py).
+    """
+    memoria = ConversationTokenBufferMemory(
+        llm=llm,
+        max_token_limit=LIMITE_TOKENS_MEMORIA,
+        memory_key="history",
+        return_messages=True,
+    )
+    return ConversationChain(
+        llm=llm,
+        memory=memoria,
+        prompt=criar_prompt_chat(materia),
+        input_key="input",
+        output_key="response",
+    )
 
 
 # ==============================================================
@@ -131,11 +153,11 @@ class TutorENEM:
             raise ValueError(f"Matéria desconhecida: {materia}")
         sala = self.salas.obter(sessao, materia)
         if sala.chain is None:
-            sala.chain = criar_chain_basica(materia, self.llm)
+            sala.chain = criar_chain_conversa(materia, self.llm)
         return sala
 
     def responder(self, sessao: str, materia: str, texto: str) -> str:
-        """Fluxo de 1 turno: guardrail de entrada → chain com memória → guardrail de saída."""
+        """Fluxo de 1 turno: guardrail de entrada → ConversationChain → guardrail de saída."""
         sala = self._sala(sessao, materia)
         verificacao = verificar_entrada(texto)
 
@@ -143,11 +165,13 @@ class TutorENEM:
             # Bloqueado: não chama o modelo e NÃO grava na memória
             resposta = verificacao.mensagem
         else:
-            bruta = sala.chain.invoke({"history": sala.historico, "input": verificacao.texto})
-            resposta, _ = verificar_saida(bruta)
-            # Grava no histórico a pergunta SANITIZADA (sem dado pessoal/injeção)
-            # e a resposta já validada pelo guardrail de saída.
-            sala.registrar_turno(verificacao.texto, resposta)
+            # sala.chain.predict() já salva sozinho (verificacao.texto, resposta_bruta)
+            # na ConversationTokenBufferMemory (comportamento automático do LangChain).
+            bruta = sala.chain.predict(input=verificacao.texto)
+            resposta, alterada = verificar_saida(bruta)
+            # Se o guardrail alterou a resposta, corrige o que foi salvo automaticamente
+            # (ver Sala.registrar_turno) — a memória nunca guarda o que foi barrado/mascarado.
+            sala.registrar_turno(verificacao.texto, resposta, alterada)
 
         sala.transcricao += [
             {"role": "user", "content": texto},
