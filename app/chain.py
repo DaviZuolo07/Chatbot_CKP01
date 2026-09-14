@@ -1,39 +1,39 @@
 """
 chain.py — Pipelines LCEL do Tutor ENEM (arquitetura de 2 chains da Aula 03).
 
-  Chain 1 — conversa (Aula 02): ConversationChain + TokenBufferMemory,
-            UMA por sala (matéria), cada uma com o prompt da sua matéria.
+  Chain 1 — conversa (Aula 02): prompt | llm | StrOutputParser, com o
+            histórico da sala (janela ≤1200 tokens, memory_manager.py)
+            passado manualmente no MessagesPlaceholder("history") a cada
+            invoke — mesmo conceito de TokenBufferMemory ensinado na Aula
+            02, sem depender de langchain.chains/langchain.memory (esse
+            pacote legado não constrói no Python 3.14; ver memory_manager.py).
   Chain 2 — saída estruturada (Aula 03):  prompt | llm_json | PydanticOutputParser
             · correção de redação  → CorrecaoRedacao
             · relatório da sessão  → RelatorioSessao
-  Chain básica (Aula 01): prompt | llm | StrOutputParser — usada no context_rot.
+  Chain básica (Aula 01): prompt | llm | StrOutputParser — usada no context_rot
+            e agora também na Chain 1 (mesmo formato, histórico manual).
 
 A classe TutorENEM junta tudo com os guardrails e é a única coisa que a
 interface (main.py) precisa conhecer.
 """
 import os
-import warnings
 
 from dotenv import load_dotenv
-from langchain_core._api import LangChainDeprecationWarning
 from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_ollama import ChatOllama
 
-warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
-from langchain.chains import ConversationChain  # noqa: E402  (Aula 02, LangChain 0.3.x)
-
-from app.guardrails import (  # noqa: E402
+from app.guardrails import (
     LIMITE_CARACTERES_REDACAO, verificar_entrada, verificar_saida,
 )
-from app.memory_manager import Sala, SalasDeEstudo  # noqa: E402
-from app.prompts import (  # noqa: E402
+from app.memory_manager import Sala, SalasDeEstudo
+from app.prompts import (
     CORRECAO_HUMAN, CORRECAO_SYSTEM, MATERIAS, RELATORIO_HUMAN, RELATORIO_SYSTEM,
     criar_prompt_chat,
 )
-from app.schemas import CorrecaoRedacao, RelatorioSessao  # noqa: E402
-from app.tokens import token_ids  # noqa: E402
+from app.schemas import CorrecaoRedacao, RelatorioSessao
+from app.tokens import token_ids
 
 # Carrega OLLAMA_API_KEY e OLLAMA_HOST do .env para os.environ.
 # Precisa acontecer ANTES de instanciar o ChatOllama — senão dá 401 (Aula 01).
@@ -83,17 +83,11 @@ def criar_chain_basica(materia: str, llm: ChatOllama) -> Runnable:
 # ==============================================================
 # Chain 1 — conversa com memória (Aula 02)
 # ==============================================================
-def criar_chain_conversa(materia: str, sala: Sala, llm: ChatOllama) -> ConversationChain:
-    """
-    ConversationChain da sala. O prompt da matéria tem exatamente
-    {history} (preenchido pela memória) e {input} (a pergunta).
-    """
-    return ConversationChain(
-        llm=llm,
-        memory=sala.memoria,
-        prompt=criar_prompt_chat(materia),
-        verbose=False,  # True mostra o prompt completo no terminal (ótimo para debug)
-    )
+# criar_chain_conversa foi removida: a Chain 1 agora É a chain básica
+# (criar_chain_basica), invocada com o histórico da Sala passado à mão
+# em {"history": sala.historico, "input": texto} — ver TutorENEM.responder.
+# Isso substitui a antiga ConversationChain(llm, memory, prompt), que
+# dependia de langchain.chains (quebra no Python 3.14).
 
 
 # ==============================================================
@@ -127,17 +121,17 @@ class TutorENEM:
         # llm e llm_json podem ser injetados (ex.: modelo fake em testes)
         self.llm = llm or criar_llm()
         self.llm_json = llm_json or criar_llm(json_mode=True)
-        self.salas = SalasDeEstudo(self.llm)
+        self.salas = SalasDeEstudo()
         self.chain_correcao = criar_chain_correcao(self.llm_json)
         self.chain_relatorio = criar_chain_relatorio(self.llm_json)
 
     def _sala(self, sessao: str, materia: str) -> Sala:
-        """Obtém a sala e cria a ConversationChain dela na primeira vez."""
+        """Obtém a sala e cria a chain dela na primeira vez."""
         if materia not in MATERIAS:
             raise ValueError(f"Matéria desconhecida: {materia}")
         sala = self.salas.obter(sessao, materia)
         if sala.chain is None:
-            sala.chain = criar_chain_conversa(materia, sala, self.llm)
+            sala.chain = criar_chain_basica(materia, self.llm)
         return sala
 
     def responder(self, sessao: str, materia: str, texto: str) -> str:
@@ -149,11 +143,11 @@ class TutorENEM:
             # Bloqueado: não chama o modelo e NÃO grava na memória
             resposta = verificacao.mensagem
         else:
-            bruta = sala.chain.predict(input=verificacao.texto)
-            resposta, alterada = verificar_saida(bruta)
-            if alterada:
-                # A ConversationChain já salvou a resposta bruta; corrige na memória
-                sala.memoria.chat_memory.messages[-1].content = resposta
+            bruta = sala.chain.invoke({"history": sala.historico, "input": verificacao.texto})
+            resposta, _ = verificar_saida(bruta)
+            # Grava no histórico a pergunta SANITIZADA (sem dado pessoal/injeção)
+            # e a resposta já validada pelo guardrail de saída.
+            sala.registrar_turno(verificacao.texto, resposta)
 
         sala.transcricao += [
             {"role": "user", "content": texto},

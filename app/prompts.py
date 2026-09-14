@@ -345,8 +345,9 @@ def criar_prompt_chat(materia: str) -> ChatPromptTemplate:
       history → MessagesPlaceholder: mensagens vindas da memória (Aula 02)
       human   → {input} dentro de <pergunta_usuario>
     Sobram exatamente as variáveis {history} e {input}, que é o que a
-    ConversationChain exige. O mesmo prompt serve para a chain básica
-    (prompt | llm | StrOutputParser) usada no context_rot.
+    chain básica (prompt | llm | StrOutputParser) espera receber no
+    invoke — usada tanto na conversa com memória (chain.py) quanto no
+    context_rot.py.
     """
     return ChatPromptTemplate.from_messages([
         ("system", SYSTEM_TEMPLATE),

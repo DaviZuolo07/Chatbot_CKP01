@@ -1,9 +1,17 @@
 """
 memory_manager.py — Memória gerenciada da conversa (Aula 02).
 
-Estratégia escolhida: ConversationTokenBufferMemory com limite de 1200 tokens,
-UMA memória por "sala" (sessão do navegador + matéria), tudo em RAM.
-Justificativa completa no README (seção "Justificativa da memória").
+Estratégia escolhida: janela deslizante por limite de TOKENS (1200), UMA
+memória por "sala" (sessão do navegador + matéria), tudo em RAM. Mesma
+estratégia ensinada como ConversationTokenBufferMemory na Aula 02 — a
+implementação aqui é manual (lista de BaseMessage podada por tokens.py)
+em vez de langchain.memory, porque esse pacote legado (pydantic v1-style)
+não constrói mais no Python 3.14. O próprio material da Aula 02 cita
+RunnableWithMessageHistory como "a abordagem moderna para memória em LCEL
+(0.3+)" — aqui vamos de mais simples ainda: histórico gerenciado à mão e
+passado direto pro MessagesPlaceholder("history"), o mesmo padrão que já
+usamos em criar_chain_basica / context_rot.py. Justificativa completa da
+ESCOLHA de TokenBuffer (vs. Buffer/Summary) está no README.
 
 Por que TokenBuffer e não as outras duas:
   - Buffer: guarda tudo; numa sessão de estudo de 30+ turnos o custo de tokens
@@ -15,53 +23,43 @@ Por que TokenBuffer e não as outras duas:
 
 Demonstração em 6 turnos:  python -m app.memory_manager
 """
-import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
-from langchain_core._api import LangChainDeprecationWarning
-from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
-# A Aula 02 usa langchain.memory (0.3.x), que emite aviso de depreciação.
-# O aviso é esperado e só polui o terminal — silenciado de propósito.
-warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
-from langchain.memory import ConversationTokenBufferMemory  # noqa: E402
-
-from app.tokens import contar_tokens_mensagens  # noqa: E402
+from app.tokens import contar_tokens_mensagens
 
 LIMITE_TOKENS_MEMORIA = 1200  # dentro da faixa 800–1500 exigida no CKP01
 
 
-def criar_memoria(llm: BaseChatModel) -> ConversationTokenBufferMemory:
-    """
-    Memória de UMA sala. O llm é usado apenas para CONTAR tokens
-    (via custom_get_token_ids = tiktoken, configurado em chain.criar_llm).
-    return_messages=True → devolve HumanMessage/AIMessage para o
-    MessagesPlaceholder("history") do prompt.
-    """
-    return ConversationTokenBufferMemory(
-        llm=llm,
-        max_token_limit=LIMITE_TOKENS_MEMORIA,
-        memory_key="history",
-        return_messages=True,
-    )
+def _podar(mensagens: list[BaseMessage], limite: int) -> list[BaseMessage]:
+    """Remove as mensagens MAIS ANTIGAS (início da lista) até a janela
+    caber no limite de tokens — o mesmo comportamento do TokenBufferMemory."""
+    while len(mensagens) > 1 and contar_tokens_mensagens(mensagens) > limite:
+        mensagens.pop(0)
+    return mensagens
 
 
 @dataclass
 class Sala:
     """Uma sala de estudo = uma matéria dentro de uma sessão do navegador."""
     materia: str
-    memoria: ConversationTokenBufferMemory
-    chain: Any = None                                   # ConversationChain (criada em chain.py)
-    transcricao: list[dict] = field(default_factory=list)  # histórico COMPLETO para a interface
+    chain: Any = None                                       # Runnable (criada em chain.py)
+    historico: list[BaseMessage] = field(default_factory=list)  # janela ≤1200 tokens, vai pro modelo
+    transcricao: list[dict] = field(default_factory=list)       # histórico COMPLETO para a interface
+
+    def registrar_turno(self, pergunta_sanitizada: str, resposta: str) -> None:
+        """Grava o turno na janela de memória e poda pelo limite de tokens."""
+        self.historico += [HumanMessage(pergunta_sanitizada), AIMessage(resposta)]
+        self.historico = _podar(self.historico, LIMITE_TOKENS_MEMORIA)
 
     def estatisticas(self) -> dict:
         """O que a memória está enviando ao modelo agora (≠ transcrição completa)."""
-        msgs = self.memoria.chat_memory.messages
         return {
-            "mensagens_na_memoria": len(msgs),
+            "mensagens_na_memoria": len(self.historico),
             "mensagens_na_conversa": len(self.transcricao),
-            "tokens_na_memoria": contar_tokens_mensagens(msgs),
+            "tokens_na_memoria": contar_tokens_mensagens(self.historico),
             "limite_tokens": LIMITE_TOKENS_MEMORIA,
         }
 
@@ -73,14 +71,13 @@ class SalasDeEstudo:
     e Biologia nunca "vê" o que foi conversado em Física.
     """
 
-    def __init__(self, llm: BaseChatModel):
-        self._llm = llm
+    def __init__(self) -> None:
         self._salas: dict[tuple[str, str], Sala] = {}
 
     def obter(self, sessao: str, materia: str) -> Sala:
         chave = (sessao, materia)
         if chave not in self._salas:
-            self._salas[chave] = Sala(materia=materia, memoria=criar_memoria(self._llm))
+            self._salas[chave] = Sala(materia=materia)
         return self._salas[chave]
 
     def limpar(self, sessao: str, materia: str) -> None:
@@ -111,8 +108,8 @@ def demonstrar_memoria() -> None:
         print(f"\n=== Turno {i} ===\n👤 {pergunta}\n🤖 {resposta}")
         print(f"📊 {sala.estatisticas()}")
 
-    print("\n=== load_memory_variables({}) ao final ===")
-    for msg in sala.memoria.load_memory_variables({})["history"]:
+    print("\n=== Janela de memória (historico) ao final ===")
+    for msg in sala.historico:
         print(f"[{msg.type}] {msg.content[:100]}")
 
 

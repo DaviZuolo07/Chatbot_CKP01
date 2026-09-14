@@ -1,7 +1,10 @@
 # LangChain 0.3+ (versão adotada no semestre — Aula 01).
-# Travado em <0.4 porque os imports da Aula 02
-# (langchain.memory, langchain.chains) não existem mais no pacote principal a partir da 1.x.
-langchain>=0.3,<0.4
+# Usamos só langchain-core + langchain-ollama: o pacote "langchain" clássico
+# (langchain.chains, langchain.memory) foi removido do projeto porque é
+# pydantic v1-style por baixo e não constrói no Python 3.14 (ver memory_manager.py
+# e chain.py). A memória (Aula 02) é implementada manualmente com LCEL puro —
+# o próprio material da Aula 02 cita essa abordagem (RunnableWithMessageHistory
+# e LCEL) como "a moderna para memória em 0.3+".
 langchain-core>=0.3,<0.4
 langchain-ollama>=0.3,<0.4
 
