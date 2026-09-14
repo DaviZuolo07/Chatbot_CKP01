@@ -29,6 +29,10 @@ from app.prompts import criar_prompt_chat
 from app.tokens import contar_tokens
 
 MATERIA = "matematica"
+# Cada valor abaixo é uma quantidade de turnos de distração — ou seja, uma
+# JANELA DE CONTEXTO diferente. Mais turnos = histórico maior = mais tokens
+# enviados ao modelo no mesmo prompt final (ver PERGUNTA_FINAL). É essa
+# variação turnos → tokens que o experimento mede contra a qualidade.
 JANELAS_PADRAO = (0, 5, 10, 15, 20)
 ARQUIVO_RESULTADO = "context_rot_resultados.md"
 
@@ -114,6 +118,8 @@ def executar_experimento(janelas=JANELAS_PADRAO, repeticoes: int = 1, llm=None) 
         historico = construir_historico(turnos)
         entrada = {"history": historico, "input": PERGUNTA_FINAL}
         texto_prompt = "\n".join(m.content for m in prompt.format_messages(**entrada))
+        tokens_tiktoken = contar_tokens(texto_prompt)
+        print(f"janela: {turnos:>3} turnos de contexto (~{tokens_tiktoken} tokens tiktoken no prompt)")
 
         rodadas = []
         for _ in range(repeticoes):
@@ -124,12 +130,13 @@ def executar_experimento(janelas=JANELAS_PADRAO, repeticoes: int = 1, llm=None) 
             uso = getattr(mensagem, "usage_metadata", None) or {}
             rodadas.append({**avaliar(resposta, turnos), "latencia": latencia,
                             "tokens_ollama": uso.get("input_tokens"), "resposta": resposta})
-            print(f"  janela {turnos:>3} turnos → {rodadas[-1]['qualidade_pct']}% | {resposta[:70]!r}")
+            print(f"  {turnos:>3} turnos → {tokens_tiktoken} tokens → "
+                  f"{rodadas[-1]['qualidade_pct']}% qualidade | {resposta[:70]!r}")
 
         tokens_reais = [r["tokens_ollama"] for r in rodadas if r["tokens_ollama"]]
         linhas.append({
             "turnos_distracao": turnos,
-            "tokens_tiktoken": contar_tokens(texto_prompt),
+            "tokens_tiktoken": tokens_tiktoken,
             "tokens_ollama": round(mean(tokens_reais)) if tokens_reais else None,
             "latencia_s": round(mean(r["latencia"] for r in rodadas), 2),
             "lembrou_nome_pct": round(100 * mean(r["lembrou_nome"] for r in rodadas)),
@@ -154,7 +161,12 @@ def tabela_markdown(linhas: list[dict]) -> str:
 def salvar_resultados(linhas: list[dict], repeticoes: int) -> str:
     conteudo = (
         f"# Context rot — resultados\n\nModelo: gemma4:cloud · matéria: {MATERIA} · "
-        f"repetições por janela: {repeticoes}\n\n{tabela_markdown(linhas)}\n"
+        f"repetições por janela: {repeticoes}\n\n"
+        "Cada linha é a MESMA pergunta final, com o MESMO system prompt, variando apenas "
+        "a janela de contexto (turnos_distracao) — e, portanto, a quantidade de tokens "
+        "enviada ao modelo (tokens_tiktoken / tokens_ollama). qualidade_pct mede o "
+        "comportamento real do modelo naquela janela.\n\n"
+        f"{tabela_markdown(linhas)}\n"
         "## Respostas de exemplo\n\n"
         + "".join(f"- **{l['turnos_distracao']} turnos:** {l['exemplo_resposta']}\n" for l in linhas)
     )
