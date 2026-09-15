@@ -32,10 +32,255 @@ DELIMITADORES_LATEX = [
 ]
 
 CSS = """
-.gradio-container {max-width: 1280px !important; margin: auto;}
-#chat {border-radius: 16px;}
-#entrada textarea {font-size: 16px;}
+/* ============================================================
+   Skin visual "caderno / editorial" — só CSS, nenhuma lógica.
+   Paleta e tipografia espelham o preview_visual_tutor_enem.html.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --papel:#F6F5F1;
+  --papel-linha:#E7E4DB;
+  --tinta:#1B2430;
+  --tinta-suave:#5B6472;
+  --verde-quadro:#1F3D2B;
+  --verde-quadro-claro:#2C5641;
+  --borda:#DEDBD0;
+  --card:#FFFFFF;
+
+  --cor-redacao:#E15A45;
+  --cor-matematica:#2F6FED;
+  --cor-historia:#C97B2E;
+  --cor-biologia:#3F9142;
+  --cor-fisica:#7C5CFC;
+}
+
+/* Força tema claro sempre — sobrescreve as variáveis internas do Gradio
+   (usadas em botões, radio, labels etc.) tanto no modo claro quanto no
+   modo escuro do sistema, para nunca cair em "texto branco no fundo branco". */
+:root, .dark, .dark * {
+  color-scheme: light !important;
+  --body-background-fill: #F6F5F1 !important;
+  --background-fill-primary: #FFFFFF !important;
+  --background-fill-secondary: #F6F5F1 !important;
+  --block-background-fill: #FFFFFF !important;
+  --block-border-color: #DEDBD0 !important;
+  --border-color-primary: #DEDBD0 !important;
+  --border-color-accent: #DEDBD0 !important;
+  --body-text-color: #1B2430 !important;
+  --body-text-color-subdued: #5B6472 !important;
+  --block-label-text-color: #5B6472 !important;
+  --block-title-text-color: #1B2430 !important;
+  --input-background-fill: #FBFAF7 !important;
+  --checkbox-label-background-fill: #FBFAF7 !important;
+  --checkbox-label-background-fill-selected: #FFFFFF !important;
+  --checkbox-label-text-color: #1B2430 !important;
+  --checkbox-label-text-color-selected: #1B2430 !important;
+  --checkbox-background-color: #FFFFFF !important;
+  --checkbox-border-color: #DEDBD0 !important;
+  --neutral-50:#FFFFFF; --neutral-100:#F6F5F1; --neutral-200:#E7E4DB;
+  --neutral-700:#5B6472; --neutral-800:#1B2430; --neutral-900:#1B2430;
+}
+html, body, gradio-app {
+  background: #F6F5F1 !important;
+  color: #1B2430 !important;
+}
+.gradio-container, .dark .gradio-container {
+  background: #F6F5F1 !important;
+  color: #1B2430 !important;
+}
+/* qualquer texto solto dentro do app fica preto por padrão... */
+.gradio-container, .gradio-container p, .gradio-container span, .gradio-container label,
+.gradio-container li, .gradio-container td, .gradio-container th, .gradio-container div {
+  color: #1B2430;
+}
+/* ...exceto onde o fundo é escuro/colorido de propósito (botão primário e
+   balão do aluno), que continuam com texto claro para manter contraste. */
+#btn-enviar, #btn-enviar *,
+.gradio-container button.primary, .gradio-container button.primary *,
+#chat .user-row .message, #chat .user-row .message *,
+#chat .message.user, #chat .message.user * {
+  color: #F6F5F1 !important;
+}
+
+/* ---------- aumenta a proporção geral da interface ---------- */
+.gradio-container {
+  zoom: 1.18;
+}
+
+.gradio-container {
+  max-width: 1420px !important;
+  margin: auto !important;
+  background: var(--papel) !important;
+  font-family: 'Inter', sans-serif !important;
+  color: var(--tinta) !important;
+}
+.gradio-container h1, .gradio-container h2, .gradio-container h3 {
+  font-family: 'Fraunces', serif !important;
+  letter-spacing: -.01em;
+  color: var(--tinta);
+}
 footer {display: none !important;}
+
+/* ---------- cabeçalho / título ---------- */
+#topo-titulo h1 {font-size: 22px !important; font-weight: 600 !important; margin-bottom: 2px !important;}
+#topo-titulo p, #topo-titulo * {color: var(--tinta-suave);}
+
+/* ---------- abas superiores (Chat / Redação / Context rot) ---------- */
+.tab-nav, div[role="tablist"] {
+  border-bottom: 1px solid var(--borda) !important;
+  background: transparent !important;
+  gap: 4px !important;
+}
+.tab-nav button, div[role="tablist"] button {
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 500 !important;
+  color: var(--tinta-suave) !important;
+  border-radius: 10px 10px 0 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+.tab-nav button.selected, div[role="tablist"] button[aria-selected="true"] {
+  color: var(--tinta) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--borda) !important;
+  border-bottom: 1px solid var(--card) !important;
+  font-weight: 600 !important;
+}
+
+/* ---------- sidebar (coluna de matérias) ---------- */
+#sidebar {
+  background: var(--card);
+  border-right: 1px solid var(--borda);
+  border-radius: 16px 0 0 16px;
+  padding-right: 6px !important;
+}
+
+/* Radio "Matéria" viram abas de caderno coloridas, uma por matéria,
+   na mesma ordem de app/prompts.py (redação, matemática, história,
+   biologia, física) usada em listar_materias(). */
+#materia-radio label,
+#materia-radio .wrap label {
+  position: relative;
+  border: 1px solid var(--borda) !important;
+  border-right: none !important;
+  border-radius: 12px 0 0 12px !important;
+  background: #FBFAF7 !important;
+  padding: 11px 16px 11px 14px !important;
+  margin-bottom: 7px !important;
+  box-shadow: none !important;
+}
+#materia-radio label::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0; width: 4px;
+  border-radius: 3px 0 0 3px;
+  background: var(--tinta-suave);
+}
+#materia-radio label:nth-child(1)::before {background: var(--cor-redacao);}
+#materia-radio label:nth-child(2)::before {background: var(--cor-matematica);}
+#materia-radio label:nth-child(3)::before {background: var(--cor-historia);}
+#materia-radio label:nth-child(4)::before {background: var(--cor-biologia);}
+#materia-radio label:nth-child(5)::before {background: var(--cor-fisica);}
+
+#materia-radio label.selected,
+#materia-radio label[data-selected="true"],
+#materia-radio input:checked + span {
+  background: var(--card) !important;
+}
+#materia-radio label:has(input:checked) {
+  background: var(--card) !important;
+  box-shadow: -1px 2px 10px -4px rgba(27,36,48,.18) !important;
+  transform: translateX(6px);
+  font-weight: 600;
+}
+#materia-radio label:nth-child(1):has(input:checked) {border-color: var(--cor-redacao) !important;}
+#materia-radio label:nth-child(2):has(input:checked) {border-color: var(--cor-matematica) !important;}
+#materia-radio label:nth-child(3):has(input:checked) {border-color: var(--cor-historia) !important;}
+#materia-radio label:nth-child(4):has(input:checked) {border-color: var(--cor-biologia) !important;}
+#materia-radio label:nth-child(5):has(input:checked) {border-color: var(--cor-fisica) !important;}
+
+#cabecalho-materia {
+  padding: 10px 4px 4px 4px;
+}
+#cabecalho-materia h3 {font-size: 15px !important; margin: 0 0 2px 0 !important;}
+#cabecalho-materia small {color: var(--tinta-suave); font-size: 11.5px;}
+
+/* ---------- caixa "memória da sala" ---------- */
+#memoria-sala {
+  margin-top: 6px;
+  padding: 12px 13px;
+  background: #FBFAF7;
+  border: 1px dashed var(--borda);
+  border-radius: 12px;
+  font-size: 11.5px;
+  color: var(--tinta-suave) !important;
+}
+#memoria-sala p, #memoria-sala strong {color: var(--tinta-suave) !important; margin: 0;}
+
+/* botões da sidebar */
+#btn-limpar, #btn-relatorio {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--borda) !important;
+  background: #FBFAF7 !important;
+  color: var(--tinta) !important;
+  box-shadow: none !important;
+}
+
+/* ---------- área de chat ---------- */
+#chat-area {background: var(--card); border-radius: 0 16px 16px 0;}
+#chat {
+  border: 1px solid var(--borda) !important;
+  border-radius: 16px !important;
+  background-image: repeating-linear-gradient(var(--papel) 0px, var(--papel) 34px, var(--papel-linha) 35px) !important;
+  background-size: 100% 35px !important;
+  background-color: var(--papel) !important;
+}
+#chat .message-wrap, #chat .bubble-wrap {background: transparent !important;}
+
+/* balões do tutor (bot) — canto do quadro-verde */
+#chat .bot-row .message,
+#chat .message.bot,
+#chat [data-testid="bot"] .message-content {
+  background: #fff !important;
+  border: 1px solid var(--borda) !important;
+  border-left: 3px solid var(--cor-matematica) !important;
+  border-radius: 0 18px 18px 18px !important;
+  color: var(--tinta) !important;
+}
+/* balões do aluno (user) — verde quadro-negro */
+#chat .user-row .message,
+#chat .message.user,
+#chat [data-testid="user"] .message-content {
+  background: var(--verde-quadro) !important;
+  border-radius: 18px 0 18px 18px !important;
+  color: var(--papel) !important;
+}
+#chat .message.user * {color: var(--papel) !important;}
+#chat code {
+  background: rgba(47,111,237,.08) !important;
+  border-radius: 5px !important;
+}
+
+/* ---------- campo de entrada ---------- */
+#entrada-wrap {padding-top: 10px;}
+#entrada textarea {
+  font-size: 15px !important;
+  font-family: 'Inter', sans-serif !important;
+  border-radius: 14px !important;
+  border: 1px solid var(--borda) !important;
+  background: #FBFAF7 !important;
+}
+#btn-enviar {
+  background: var(--verde-quadro) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 14px !important;
+  font-weight: 600 !important;
+}
+#btn-enviar:hover {background: var(--verde-quadro-claro) !important;}
 """
 
 
@@ -86,35 +331,42 @@ def _md_relatorio(r: RelatorioSessao) -> str:
 # Interface
 # --------------------------------------------------------------
 def construir_interface(tutor: TutorENEM) -> gr.Blocks:
-    with gr.Blocks(title=NOME_PRODUTO, theme=gr.themes.Soft(primary_hue="indigo"), css=CSS) as demo:
-        gr.Markdown(f"# 🎓 {NOME_PRODUTO}\nTutor de ensino médio com foco no ENEM — escolha a matéria e estude.")
+    with gr.Blocks(
+        title=NOME_PRODUTO,
+        theme=gr.themes.Soft(primary_hue="indigo", font=[gr.themes.GoogleFont("Inter"), "sans-serif"]),
+        css=CSS,
+    ) as demo:
+        with gr.Row(elem_id="topo-titulo"):
+            gr.Markdown(f"# 🎓 {NOME_PRODUTO}\nTutor de ensino médio com foco no ENEM — escolha a matéria e estude.")
         texto_pendente = gr.State("")  # passa a mensagem do passo 1 para o passo 2
 
         with gr.Tabs():
             # ================= CHAT =================
             with gr.Tab("💬 Chat"):
                 with gr.Row(equal_height=False):
-                    with gr.Column(scale=1, min_width=260):
+                    with gr.Column(scale=1, min_width=260, elem_id="sidebar"):
                         materia = gr.Radio(listar_materias(), value=MATERIA_INICIAL,
-                                           label="Matéria", container=True)
-                        cabecalho = gr.Markdown(_cabecalho(MATERIA_INICIAL))
-                        stats = gr.Markdown()
-                        btn_limpar = gr.Button("🗑️ Nova conversa nesta matéria", variant="secondary")
-                        btn_relatorio = gr.Button("📋 Gerar relatório da sessão")
+                                           label="Matéria", container=True, elem_id="materia-radio")
+                        cabecalho = gr.Markdown(_cabecalho(MATERIA_INICIAL), elem_id="cabecalho-materia")
+                        stats = gr.Markdown(elem_id="memoria-sala")
+                        btn_limpar = gr.Button("🗑️ Nova conversa nesta matéria", variant="secondary",
+                                                elem_id="btn-limpar")
+                        btn_relatorio = gr.Button("📋 Gerar relatório da sessão", elem_id="btn-relatorio")
                         with gr.Accordion("Relatório (Pydantic)", open=False) as acc_relatorio:
                             relatorio_md = gr.Markdown()
                             relatorio_json = gr.JSON(label="RelatorioSessao validado")
 
-                    with gr.Column(scale=4):
+                    with gr.Column(scale=4, elem_id="chat-area"):
                         chat = gr.Chatbot(
                             elem_id="chat", type="messages", height=580, show_copy_button=True,
                             latex_delimiters=DELIMITADORES_LATEX, show_label=False,
                             placeholder="### Olá! 👋\nMande sua dúvida. Cada matéria tem a sua própria sala e memória.",
                         )
-                        with gr.Row():
+                        with gr.Row(elem_id="entrada-wrap"):
                             entrada = gr.Textbox(elem_id="entrada", placeholder="Digite sua dúvida e aperte Enter…",
                                                  show_label=False, scale=8, autofocus=True, max_lines=6)
-                            btn_enviar = gr.Button("Enviar", variant="primary", scale=1, min_width=90)
+                            btn_enviar = gr.Button("Enviar ✏️", variant="primary", scale=1, min_width=90,
+                                                    elem_id="btn-enviar")
 
             # ================= REDAÇÃO =================
             with gr.Tab("✍️ Corrigir redação"):
